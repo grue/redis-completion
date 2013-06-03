@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 try:
     import simplejson as json
 except ImportError:
@@ -39,7 +40,7 @@ class RedisEngine(object):
         self.search_key = lambda k: '%s:s:%s' % (self.prefix, k)
         self.cache_key = lambda pk, bk: '%s:c:%s:%s' % (self.prefix, pk, bk)
 
-        self.kcombine = lambda _id, _type: ''.join([str(_id), '\x01', str(_type)])
+        self.kcombine = lambda _id, _type: ''.join([_id.encode('utf-8'), '\x01', _type.encode('utf-8')])
         self.ksplit = lambda k: k.split('\x01', 1)
         self._offset = 27**20
 
@@ -62,7 +63,8 @@ class RedisEngine(object):
         return score
 
     def clean_phrase(self, phrase):
-        phrase = re.sub('[^a-z0-9_\-\s]', '', phrase.lower())
+        phrase = re.sub(u'[^\S\s]', '', phrase.lower())
+        print [w for w in phrase.split() if w not in self.stop_words]
         return [w for w in phrase.split() if w not in self.stop_words]
 
     def create_key(self, phrase):
@@ -189,6 +191,7 @@ class RedisEngine(object):
 
     def search(self, phrase, limit=None, filters=None, mappers=None, boosts=None, autoboost=False):
         cleaned = self.clean_phrase(phrase)
+        print "cleaned ", cleaned 
         if not cleaned:
             return []
 
@@ -218,7 +221,7 @@ class RedisEngine(object):
                 if orig_score != score:
                     pipe.zadd(new_key, raw_id, score)
             pipe.execute()
-
+        
         id_list = self.client.zrange(new_key, 0, -1)
         return self._process_ids(id_list, limit, filters, mappers)
 
